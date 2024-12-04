@@ -97,93 +97,106 @@
         <h2>发表评论</h2>
 
         <!-- 留言输入区 -->
-        <div id="comment-form">
-            <input type="text" id="name" placeholder="输入你的名字" required>
-            <textarea id="message" placeholder="输入留言内容" required></textarea>
-            <button id="submit-comment">提交留言</button>
-        </div>
-
-        <h2>最新评论</h2>
-        <div id="comments">
-            <!-- 留言会显示在这里 -->
-        </div>
+        <form id="guestbookForm">
+          <label for="name">Name:</label>
+          <input type="text" id="name" name="name" placeholder="输入你的名字" required>
+           
+          <label for="message">Message:</label>
+          <textarea id="message" name="message" placeholder="输入留言内容" required></textarea>
+	   
+          <button type="submit">提交留言</button>
+        </form>
     </section>
 
     <script>
         document.addEventListener("DOMContentLoaded", function () {
-            const submitButton = document.getElementById('submit-comment');
-            const nameInput = document.getElementById('name');
-            const messageInput = document.getElementById('message');
-            const commentsSection = document.getElementById('comments');
-            const GITHUB_REPO = 'https://api.github.com/repos/40623226/guestbook-data/contents/comments.json';
-            const GITHUB_TOKEN = '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'; // 请使用你的 GitHub Personal Access Token
+    	    const form = document.getElementById('guestbookForm');
+   	    const commentsSection = document.getElementById('comments');
+    	    const GITHUB_REPO = 'https://api.github.com/repos/40623226/guestbook-data/contents/comments.json';
+    	    const GITHUB_TOKEN = 'YOUR_PERSONAL_ACCESS_TOKEN'; // 請使用您的 GitHub Token
 
-            // 获取留言数据
-            function fetchComments() {
-                fetch(GITHUB_REPO)
-                    .then(response => response.json())
-                    .then(data => {
-                        const comments = JSON.parse(atob(data.content)); // 解码并解析 JSON 数据
-                        displayComments(comments.comments);
-                    });
-            }
+    	    // 提交留言
+    	    form.addEventListener('submit', function (event) {
+        	event.preventDefault();
+                const name = document.getElementById('name').value;
+        	const message = document.getElementById('message').value;
 
-            // 显示留言
-            function displayComments(comments) {
-                commentsSection.innerHTML = '';
-                comments.forEach((comment) => {
-                    const commentDiv = document.createElement('div');
-                    commentDiv.classList.add('comment');
-                    commentDiv.innerHTML = `
-                        <div class="comment-header">
-                            <span>${comment.name}</span> <span>${comment.timestamp}</span>
-                        </div>
-                        <div class="comment-body">${comment.message}</div>
+        	if (name && message) {
+            	    const newComment = {
+               	        name,
+                	message,
+                	timestamp: new Date().toLocaleString(),
+          	    };
+
+            	    // 獲取現有留言並更新
+                    fetch(GITHUB_REPO, {
+                	headers: {
+                    	    Authorization: `token ${GITHUB_TOKEN}`,
+                	},
+         	    })
+                	.then(response => response.json())
+                	.then(data => {
+                    	    const comments = JSON.parse(atob(data.content));
+                    	    comments.comments.push(newComment);
+
+                    	    // 更新留言 JSON
+                    	    const updatedContent = btoa(JSON.stringify(comments, null, 2));
+                    	    return fetch(GITHUB_REPO, {
+                        	method: 'PUT',
+                        	headers: {
+                            	    Authorization: `token ${GITHUB_TOKEN}`,
+                            	    'Content-Type': 'application/json',
+                        	},
+                        	body: JSON.stringify({
+                            	    message: 'Add new comment',
+                           	    content: updatedContent,
+                            	    sha: data.sha,
+                        	}),
+                    	    });    
+                   	})
+                   	.then(() => {
+                            alert('Comment submitted successfully!');
+                            form.reset();
+                            loadComments(); // 刷新留言
+                	})
+                	.catch(err => console.error('Error:', err));
+                }       
+   	    });
+
+    	    // 加載留言
+    	    function loadComments() {
+        	fetch(GITHUB_REPO, {
+            	    headers: {
+                	Authorization: `token ${GITHUB_TOKEN}`,
+           	    },
+        	})
+            	    .then(response => response.json())
+            	    .then(data => {
+                	const comments = JSON.parse(atob(data.content));
+                	displayComments(comments.comments);
+            	    });
+    	    }       
+
+    	    // 顯示留言
+    	    function displayComments(comments) {
+        	commentsSection.innerHTML = '';
+        	comments.forEach(comment => {
+            	    const commentDiv = document.createElement('div');
+            	    commentDiv.classList.add('comment');
+            	    commentDiv.innerHTML = `
+                	<div class="comment-header">
+                    	    <span>${comment.name}</span>
+                    	    <span>${comment.timestamp}</span>
+                	</div>
+              	        <div class="comment-body">${comment.message}</div>
                     `;
-                    commentsSection.appendChild(commentDiv);
-                });
-            }
+            	    commentsSection.appendChild(commentDiv);
+        	});
+   	    }
 
-            // 提交留言
-            submitButton.addEventListener('click', function () {
-                const name = nameInput.value;
-                const message = messageInput.value;
-                if (name && message) {
-                    const newComment = {
-                        name,
-                        message,
-                        timestamp: new Date().toLocaleString()
-                    };
+   	    loadComments(); // 初始化加載留言
+	});
 
-                    // 获取现有的留言
-                    fetch(GITHUB_REPO)
-                        .then(response => response.json())
-                        .then(data => {
-                            const comments = JSON.parse(atob(data.content));
-                            comments.comments.push(newComment);
-
-                            // 更新 GitHub 上的 JSON 文件
-                            const updatedContent = btoa(JSON.stringify(comments));
-                            fetch(GITHUB_REPO, {
-                                method: 'PUT',
-                                headers: {
-                                    'Authorization': `token ${GITHUB_TOKEN}`,
-                                    'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify({
-                                    message: 'Add new comment',
-                                    committer: { name: 'Your Name', email: 'your-email@example.com' },
-                                    content: updatedContent,
-                                    sha: data.sha
-                                })
-                            })
-                            .then(fetchComments); // 提交后刷新留言
-                        });
-                }
-            });
-
-            fetchComments(); // 初始化加载留言
-        });
     </script>
 
 </body>
